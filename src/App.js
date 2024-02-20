@@ -1,10 +1,46 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
 import './App.css';
 import DiaryEditor from './DiaryEditor';
 import DiaryList from './DiaryList';
 
+const reducer = (state, action) => {
+  switch (action.type) {
+    case 'INIT': {
+      return action.data; //새로운 state값이 action.data값이 된다.
+    }
+    case 'CREATE': {
+      const create_dated = new Date().getTime();
+      const newItem = {
+        ...action.data,
+        create_dated,
+      };
+      return [newItem, ...state];
+    }
+    case 'REMOVE': {
+      return state.filter((it) => it.id !== action.targetId);
+    }
+    case 'EDIT': {
+      return state.map((it) =>
+        it.id === action.targetId ? { ...it, content: action.newContent } : it
+      );
+    }
+    default:
+      return state;
+  }
+};
+
 function App() {
-  const [data, setData] = useState([]);
+  //const [data, setData] = useState([]);
+
+  const [data, dispatch] = useReducer(reducer, []);
+
   const dataId = useRef(0);
 
   const getData = async () => {
@@ -21,7 +57,7 @@ function App() {
         id: dataId.current++,
       };
     });
-    setData(initData);
+    dispatch({ type: 'INIT', data: initData });
   }; //API 호출 내장함수 fetch 사용
 
   useEffect(() => {
@@ -29,30 +65,20 @@ function App() {
   }, []);
 
   const onCreate = useCallback((author, content, emotion) => {
-    const create_dated = new Date().getTime();
-    const newData = {
-      author,
-      //키와 값의 이름이 동일하므로 (author: author) 축약하여 author라고만 쓸 수도 있다.
-      content,
-      emotion,
-      create_dated,
-      id: dataId.current,
-    };
+    dispatch({
+      type: 'CREATE',
+      data: { author, content, emotion, id: dataId.current },
+    });
     dataId.current += 1;
-    setData((data) => [newData, ...data]);
   }, []);
 
   const onRemove = useCallback((targetId) => {
-    setData((data) => data.filter((it) => it.id !== targetId));
+    dispatch({ type: 'REMOVE', targetId });
   }, []);
 
   const onEdit = useCallback((targetId, newContent) => {
     //특정 일기 데이터를 수정하는 함수
-    setData((data) => {
-      data.map((it) =>
-        it.id === targetId ? { ...it, content: newContent } : it
-      );
-    });
+    dispatch({ type: 'EDIT', targetId, newContent });
   }, []);
 
   const getDiaryAnalysis = useMemo(() => {
